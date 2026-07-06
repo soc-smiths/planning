@@ -1,6 +1,6 @@
 # Track 02 — Forge Check
 
-## Status: DRAFT v1
+## Status: DRAFT v2 — expanded to match syllabus v2
 
 ---
 
@@ -38,10 +38,9 @@
    ✅ Code density — reduces instruction-fetch bandwidth and program
    size using 16-bit encodings for common instructions.
 
-8. True or False: most small embedded RISC-V cores implement all three
-   privilege modes (M/S/U).
-   ✅ False — many implement M-mode only, since full multi-mode support
-   is unnecessary overhead for simple embedded use cases.
+8. True or False: `li a0, 100` is a real RISC-V hardware instruction.
+   ✅ False — it's a pseudo-instruction; the assembler expands it to
+   a real instruction such as ADDI (or LUI+ADDI for larger constants).
 
 9. What is a CSR, and how does CSRRW differ from a normal register
    write?
@@ -58,23 +57,51 @@
     (caused by the current instruction) while interrupts are
     asynchronous (external events); mcause distinguishes them.
 
-12. What does the FENCE instruction do, conceptually?
-    ✅ Enforces ordering constraints on memory operations before/after
-    it, relevant for DMA/multi-core/memory-mapped I/O correctness.
+12. What is PMP, and what real problem does it solve on a core with
+    no full MMU?
+    ✅ Physical Memory Protection — restricts which memory regions
+    code can access, enabling isolation (e.g. bootloader vs.
+    application) without full virtual memory hardware.
 
-13. True or False: RV32IMC is a common choice for microcontroller-class
+13. What is the difference in role between CLINT and PLIC?
+    ✅ CLINT handles software and timer interrupts local to a hart;
+    PLIC routes and prioritizes multiple external peripheral
+    interrupts to one or more harts.
+
+14. True or False: RV32IMC is a common choice for microcontroller-class
     cores.
     ✅ True — integer base + multiply/divide + compressed instructions,
     a practical balance for small embedded cores.
 
-14. What's the difference between LW and LB in terms of what ends up
-    in the destination register?
+15. What is Spike, and why is it used before RTL/silicon exists?
+    ✅ The RISC-V reference ISA simulator — runs binaries against the
+    spec as a "golden reference" so software/verification work can
+    proceed before real hardware is available.
+
+16. True or False: claiming a core implements "RV32IMC" is automatically
+    true as long as the RTL was written with that intent.
+    ✅ False — conformance must actually be verified, typically using
+    compliance/architecture test suites (e.g. riscv-arch-test).
+
+17. What's the difference in what ends up in the destination register
+    between LW and LB?
     ✅ LW loads a full 32-bit word; LB loads a single byte and sign-
     extends it to fill the register.
 
-15. True or False: `objdump` can be used to disassemble a compiled
+18. True or False: `objdump` can be used to disassemble a compiled
     binary back into assembly instructions.
     ✅ True.
+
+19. What does the Vector (V) extension conceptually add to the ISA,
+    at a high level?
+    ✅ Vector registers and instructions that operate on multiple data
+    elements per instruction (data-parallel processing).
+
+20. Why does RISC-V formally reserve opcode space for custom
+    instructions rather than leaving it undefined?
+    ✅ Lets vendors add proprietary/custom instructions in a
+    standardized, non-conflicting way while remaining compliant with
+    the base ISA elsewhere.
 
 ---
 
@@ -117,6 +144,30 @@
    the DMA engine yet when the trigger write occurs; FENCE ensures
    ordering.
 
+6. Two peripherals (a UART and a timer) both need to interrupt the CPU.
+   Explain, at a high level, the path an interrupt takes from either
+   peripheral asserting its interrupt line to the CPU's trap handler
+   running.
+   ✅ Peripheral asserts interrupt → PLIC receives and prioritizes it
+   among pending peripheral interrupts → PLIC signals the hart's
+   external interrupt line → CPU traps, mcause indicates external
+   interrupt → handler queries PLIC (claim) to find which source fired
+   → handles it → signals PLIC complete.
+
+7. Why would a team run their own RISC-V core's test programs on Spike
+   before running them on their actual RTL simulation?
+   ✅ Spike gives a fast, trusted "golden" reference of correct
+   behavior; comparing the core's RTL execution trace against Spike's
+   output helps isolate whether a bug is in the software/test or in
+   the core's hardware implementation.
+
+8. A team claims their custom core implements RV32IMC. What would you
+   actually do to verify that claim rather than just trusting the RTL
+   author's intent?
+   ✅ Run the core against a compliance/architecture test suite (e.g.
+   riscv-arch-test) covering the I, M, and C extensions and confirm
+   all tests pass.
+
 ---
 
 ## Part 3 — Practical Proof
@@ -142,6 +193,16 @@ Given a provided stripped binary and GDB register dump at a crash
 point (no source code), identify the likely bug class (e.g. stack
 corruption, bad jump target, ABI violation) using only objdump output
 and register state.
+
+**Task 5 — Run it on Spike**
+Given a provided small RISC-V binary, run it under Spike, capture the
+execution trace/output, and explain what "matching the golden
+reference" would mean if this were later compared against RTL simulation.
+
+**Task 6 — PMP reasoning**
+Given a provided memory map (bootloader region + application region),
+describe the PMP configuration (address range + permissions) that
+would prevent application code from writing into the bootloader region.
 
 ---
 
